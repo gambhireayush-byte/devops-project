@@ -1,0 +1,60 @@
+---
+- name: Configure pharmacy inventory demo host
+  hosts: pharmacy
+  become: true
+  vars:
+    app_port: 8080
+    app_version: "1.0.0"
+    app_image: "pharmacy-inventory"
+    deploy_root: /opt/pharmacy-inventory
+  tasks:
+    - name: Install runtime prerequisites
+      ansible.builtin.apt:
+        name: [docker.io, curl, ca-certificates]
+        state: present
+        update_cache: true
+      when: ansible_os_family == "Debian"
+
+    - name: Ensure Docker service is enabled and running
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Create release metadata directory
+      ansible.builtin.file:
+        path: "{{ deploy_root }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Record deployed release version
+      ansible.builtin.copy:
+        dest: "{{ deploy_root }}/release.json"
+        content: '{"service":"pharmacy-inventory","version":"{{ app_version }}"}'
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Run inventory web container
+      community.docker.docker_container:
+        name: pharmacy-inventory
+        image: "{{ app_image }}:{{ app_version }}"
+        state: started
+        restart_policy: unless-stopped
+        published_ports: ["{{ app_port }}:8080"]
+        labels:
+          app: pharmacy-inventory
+          release: "{{ app_version }}"
+
+    - name: Check application health
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ app_port }}/health"
+        status_code: 200
+        return_content: true
+      register: health
+      retries: 10
+      delay: 3
+      until: health.status == 200
+
