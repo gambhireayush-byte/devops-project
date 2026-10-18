@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#174f46"><title>Inventory · Fieldnote Pharmacy</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar" aria-label="Primary navigation">
+      <a class="brand" href="#overview"><span class="brand-mark">+</span><span><strong>fieldnote</strong><small>PHARMACY OPS</small></span></a>
+      <div class="side-label">WORKSPACE</div>
+      <nav class="nav-list">
+        <a href="#overview" class="nav-item"><span class="nav-icon">⌂</span>Overview</a>
+        <a href="#inventory" class="nav-item active" aria-current="page"><span class="nav-icon">▤</span>Inventory <span class="nav-count" id="nav-count">24</span></a>
+        <a href="#transactions" class="nav-item"><span class="nav-icon">↔</span>Transactions</a>
+        <a href="#alerts" class="nav-item"><span class="nav-icon">⚑</span>Alerts <span class="nav-dot"></span></a>
+      </nav>
+      <div class="sidebar-bottom"><div class="sync"><span class="sync-dot"></span><div><strong>Local workspace</strong><small>Changes saved in this browser</small></div></div><button id="reset-data" class="reset-link" onclick="resetDemoData()">Reset demo data</button></div>
+    </aside>
+    <main class="main">
+      <header class="topbar"><div class="crumb">Workspace <span>/</span> Inventory</div><div class="top-actions"><span class="today" id="today"></span><div class="avatar" title="Pharmacy team">PT</div></div></header>
+      <section class="content" id="inventory">
+        <div class="page-heading"><div><p class="eyebrow">STOCKROOM / DAILY VIEW</p><h1>Inventory</h1><p class="subhead">A clear view of what’s on the shelf and what needs attention.</p></div><button class="primary-button" id="add-item" onclick="openItem()"><span>＋</span> Add item</button></div>
+        <section class="metrics" aria-label="Inventory summary">
+          <article class="metric-card"><div class="metric-top"><span>Active products</span><span class="metric-icon green">▤</span></div><strong id="metric-total">24</strong><small>Across your catalogue</small></article>
+          <article class="metric-card"><div class="metric-top"><span>Low stock</span><span class="metric-icon amber">⌁</span></div><strong id="metric-low">03</strong><small>At or below reorder point</small></article>
+          <article class="metric-card"><div class="metric-top"><span>Out of stock</span><span class="metric-icon red">∅</span></div><strong id="metric-out">01</strong><small>Needs replenishment</small></article>
+          <article class="metric-card"><div class="metric-top"><span>Expiring soon</span><span class="metric-icon blue">◷</span></div><strong id="metric-expiring">02</strong><small>Within the next 90 days</small></article>
+        </section>
+        <section class="attention-strip"><div class="attention-icon">!</div><div class="attention-copy"><strong id="attention-title">6 items need a closer look</strong><span>Review low stock and upcoming expiry dates before your next order.</span></div><a href="#alerts" class="text-link">Review alerts <span>→</span></a></section>
+        <section class="catalogue-card">
+          <div class="catalogue-head"><div><h2>Product catalogue</h2><p>Search and manage current stock levels.</p></div><button class="secondary-button" id="export-csv" onclick="exportCsv()">↓ <span>Export CSV</span></button></div>
+          <div class="toolbar"><label class="search-box"><span class="search-icon">⌕</span><input id="search" type="search" placeholder="Search product, SKU or supplier…" autocomplete="off"><button id="clear-search" class="clear-search" aria-label="Clear search" hidden onclick="clearSearch()">×</button></label><label class="filter-label">Status <select id="status-filter"><option value="all">All statuses</option><option value="healthy">In stock</option><option value="low">Low stock</option><option value="out">Out of stock</option><option value="expiring">Expiring soon</option></select></label><span class="result-count" id="result-count">24 products</span></div>
+          <div class="table-wrap"><table><thead><tr><th>PRODUCT</th><th>SKU / CATEGORY</th><th>ON HAND</th><th>STATUS</th><th>SUPPLIER</th><th>EXPIRY</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody id="inventory-body"></tbody></table><div class="empty-state" id="empty-state" hidden><div class="empty-icon">⌕</div><strong>No products match this view</strong><span>Try a different search or clear your filters.</span><button class="secondary-button" id="clear-filters" onclick="clearFilters()">Clear filters</button></div></div>
+          <div class="table-foot"><span>Showing <strong id="showing-count">24</strong> of <strong id="total-count">24</strong> products</span><span class="page-controls"><button disabled aria-label="Previous page">‹</button><span>1</span><button disabled aria-label="Next page">›</button></span></div>
+        </section>
+        <section class="lower-grid">
+          <article class="lower-card" id="alerts"><div class="lower-head"><div><h2>Attention queue</h2><p>Exceptions that may need a follow-up.</p></div><span class="queue-count" id="queue-count">0 open</span></div><div id="alert-list" class="alert-list"></div></article>
+          <article class="lower-card" id="transactions"><div class="lower-head"><div><h2>Recent movements</h2><p>Latest receive and dispense activity.</p></div><span class="audit-label">AUDIT TRAIL</span></div><div id="transaction-list" class="transaction-list"></div></article>
+        </section>
+        <footer class="footnote"><span>Inventory snapshot <strong id="snapshot-time"></strong></span><span><i class="sync-dot"></i> All changes saved locally</span></footer>
+      </section>
+    </main>
+  </div>
+  <dialog id="item-dialog" class="dialog"><form id="item-form" novalidate><div class="dialog-head"><div><p class="eyebrow">CATALOGUE ENTRY</p><h2 id="dialog-title">Add item</h2><p>Keep a product’s identity and stock thresholds up to date.</p></div><button type="button" class="icon-button" data-close aria-label="Close dialog" onclick="closeDialog(this)">×</button></div><input type="hidden" id="item-id"><div class="form-grid"><label class="field span-2">Product name<input id="name" required aria-describedby="name-error" placeholder="e.g. Paracetamol 500 mg"><small class="field-error" id="name-error"></small></label><label class="field">SKU<input id="sku" required aria-describedby="sku-error" placeholder="e.g. PCM-500-20"><small class="field-error" id="sku-error"></small></label><label class="field">Category<input id="category" required aria-describedby="category-error" placeholder="e.g. Pain relief"><small class="field-error" id="category-error"></small></label><label class="field">Quantity on hand<input id="quantity" type="number" min="0" step="1" required placeholder="0"><small class="field-error" id="quantity-error"></small></label><label class="field">Reorder point<input id="reorder" type="number" min="0" step="1" required placeholder="10"><small class="field-error" id="reorder-error"></small></label><label class="field">Supplier<input id="supplier" required aria-describedby="supplier-error" placeholder="Supplier name"><small class="field-error" id="supplier-error"></small></label><label class="field">Expiry date<input id="expiry" type="date" required><small class="field-error" id="expiry-error"></small></label></div><div class="dialog-actions"><button class="secondary-button" type="button" data-close onclick="closeDialog(this)">Cancel</button><button class="primary-button" type="submit" id="save-item">Save item</button></div></form></dialog>
+  <dialog id="stock-dialog" class="dialog stock-dialog"><form id="stock-form" novalidate><div class="dialog-head"><div><p class="eyebrow">STOCK MOVEMENT</p><h2 id="stock-title">Update stock</h2><p id="stock-subtitle">Record a receiving or dispensing action.</p></div><button type="button" class="icon-button" data-close aria-label="Close dialog" onclick="closeDialog(this)">×</button></div><input type="hidden" id="stock-id"><label class="field">Movement<select id="movement"><option value="receive">Receive stock</option><option value="dispense">Dispense stock</option></select></label><label class="field">Quantity<input id="movement-quantity" type="number" min="1" step="1" required placeholder="Enter units"><small class="field-error" id="movement-error"></small></label><div class="stock-hint" id="stock-hint"></div><div class="dialog-actions"><button class="secondary-button" type="button" data-close onclick="closeDialog(this)">Cancel</button><button class="primary-button" type="submit">Record movement</button></div></form></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"><span class="toast-mark">✓</span><span id="toast-message">Saved</span></div>
+  <script src="app.js"></script>
+</body></html>
