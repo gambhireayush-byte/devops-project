@@ -1,0 +1,7 @@
+.git
+.github
+screenshots
+target
+*.md
+automation
+tests
