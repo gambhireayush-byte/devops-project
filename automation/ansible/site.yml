@@ -21,6 +21,7 @@
         name: docker
         state: started
         enabled: true
+      when: ansible_os_family != "Darwin"
 
     - name: Ensure application service account exists
       ansible.builtin.user:
@@ -28,13 +29,14 @@
         system: true
         create_home: false
         shell: /usr/sbin/nologin
+      when: ansible_os_family != "Darwin"
 
     - name: Create release metadata directory
       ansible.builtin.file:
         path: "{{ deploy_root }}"
         state: directory
-        owner: "{{ service_user }}"
-        group: "{{ service_user }}"
+        owner: "{{ service_user if ansible_os_family != 'Darwin' else omit }}"
+        group: "{{ service_user if ansible_os_family != 'Darwin' else omit }}"
         mode: "0755"
 
     - name: Read the last successful release for recovery
@@ -76,8 +78,8 @@
           ansible.builtin.copy:
             dest: "{{ deploy_root }}/release.json"
             content: '{"service":"pharmacy-inventory","version":"{{ app_version }}"}'
-            owner: "{{ service_user }}"
-            group: "{{ service_user }}"
+            owner: "{{ service_user if ansible_os_family != 'Darwin' else omit }}"
+            group: "{{ service_user if ansible_os_family != 'Darwin' else omit }}"
             mode: "0644"
       rescue:
         - name: Remove a failed first release when no known-good version exists
@@ -114,4 +116,3 @@
             msg: >-
               Release {{ app_version }} failed its deployment or health check.
               The previous release was restored when a prior release record existed.
-
