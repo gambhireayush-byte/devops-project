@@ -12,7 +12,7 @@ pipeline {
     CI = 'true'
     IMAGE_NAME = 'pharmacy-inventory'
     APP_TEST_PORT = '18080'
-    REGISTRY = 'docker.io'
+    REGISTRY = '127.0.0.1:5000'
     TOMCAT_WEBAPPS = '/var/lib/tomcat10/webapps'
     APP_TEST_URL = 'http://127.0.0.1:18080'
     PATH = "/opt/homebrew/bin:${env.PATH}"
@@ -42,11 +42,9 @@ pipeline {
       steps { sh 'docker build --build-arg APP_VERSION="$APP_VERSION" -t "$IMAGE_NAME:$APP_VERSION" -t "$IMAGE_NAME:latest" .' }
     }
     stage('Publish image') {
-      when { allOf { expression { params.DEPLOY_TARGET == 'container' }; branch 'main' } }
+      when { expression { params.DEPLOY_TARGET == 'container' } }
       steps {
-        withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'REG_USER', passwordVariable: 'REG_PASS')]) {
-          sh 'echo "$REG_PASS" | docker login "$REGISTRY" -u "$REG_USER" --password-stdin && docker tag "$IMAGE_NAME:$APP_VERSION" "$REGISTRY/$REG_USER/$IMAGE_NAME:$APP_VERSION" && docker push "$REGISTRY/$REG_USER/$IMAGE_NAME:$APP_VERSION"'
-        }
+        sh 'docker tag "$IMAGE_NAME:$APP_VERSION" "$REGISTRY/$IMAGE_NAME:$APP_VERSION" && docker push "$REGISTRY/$IMAGE_NAME:$APP_VERSION"'
       }
     }
     stage('Deploy container') {
@@ -54,7 +52,8 @@ pipeline {
       steps {
         sh '''
           docker rm -f pharmacy-inventory || true
-          docker run -d --name pharmacy-inventory --restart unless-stopped -p "$APP_PORT:8080" "$IMAGE_NAME:$APP_VERSION"
+          docker pull "$REGISTRY/$IMAGE_NAME:$APP_VERSION"
+          docker run -d --name pharmacy-inventory --restart unless-stopped -p "$APP_PORT:8080" "$REGISTRY/$IMAGE_NAME:$APP_VERSION"
           for i in $(seq 1 20); do
             if curl --fail "http://127.0.0.1:$APP_PORT/health"; then exit 0; fi
             sleep 1
