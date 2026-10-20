@@ -5,7 +5,7 @@ pipeline {
   parameters {
     string(name: 'APP_VERSION', defaultValue: '1.0.0', description: 'Version used for WAR and Docker image')
     choice(name: 'DEPLOY_TARGET', choices: ['container', 'tomcat', 'none'], description: 'Deployment destination')
-    string(name: 'APP_PORT', defaultValue: '8080', description: 'Host port for container deployment')
+    string(name: 'APP_PORT', defaultValue: '18081', description: 'Host port for container deployment')
     string(name: 'APP_URL', defaultValue: 'http://127.0.0.1:8080', description: 'Tomcat deployment health-check URL')
   }
   environment {
