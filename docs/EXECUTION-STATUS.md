@@ -27,7 +27,7 @@ Verified 2026-10-21. Percentages estimate completion against the assignment deli
 - Local image registry: 127.0.0.1:5000; image pharmacy-inventory:1.0.0.
 - Selenium: Maven clean verify, 4 tests, 0 failures.
 - Debian Ansible: initial ok=9 changed=4 failed=0; unchanged rerun ok=10 changed=0 failed=0; recovery rescued=1, intentionally nonzero because the requested missing release failed, but prior version health was 200.
-- Detailed Linux target results: docs/evidence/ANSIBLE-LINUX-VALIDATION.md.
+- Detailed Linux target results: docs/ANSIBLE-LINUX-VALIDATION.md.
 
 ## Remaining evidence work
 
