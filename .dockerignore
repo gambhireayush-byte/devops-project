@@ -1,7 +1,8 @@
 .git
 .github
 screenshots
-target
+target/*
+!target/pharmacy-inventory.war
 *.md
 automation
 tests

@@ -6,39 +6,66 @@ pipeline {
     string(name: 'APP_VERSION', defaultValue: '1.0.0', description: 'Version used for WAR and Docker image')
     choice(name: 'DEPLOY_TARGET', choices: ['container', 'tomcat', 'none'], description: 'Deployment destination')
     string(name: 'APP_PORT', defaultValue: '8080', description: 'Host port for container deployment')
+    string(name: 'APP_URL', defaultValue: 'http://127.0.0.1:8080', description: 'Tomcat deployment health-check URL')
   }
   environment {
     CI = 'true'
     IMAGE_NAME = 'pharmacy-inventory'
     APP_TEST_PORT = '18080'
-    REGISTRY = 'docker.io'
-    REGISTRY_CREDENTIALS = 'dockerhub-creds'
+    REGISTRY = '127.0.0.1:5000'
     TOMCAT_WEBAPPS = '/var/lib/tomcat10/webapps'
+    APP_TEST_URL = 'http://127.0.0.1:18080'
+    PATH = "/opt/homebrew/bin:${env.PATH}"
   }
   stages {
     stage('Checkout') { steps { checkout scm } }
     stage('Start test server') {
-      steps { sh 'nohup python3 -m http.server ${APP_TEST_PORT} --directory app > /tmp/pharmacy-test-http.log 2>&1 & echo $! > /tmp/pharmacy-test-http.pid; for i in $(seq 1 20); do if curl -fsS http://127.0.0.1:${APP_TEST_PORT}/health; then exit 0; fi; sleep 1; done; echo "Test server did not become healthy"; exit 1' }
+      steps {
+        sh '''
+          nohup python3 -m http.server "$APP_TEST_PORT" --directory app > /tmp/pharmacy-test-http.log 2>&1 &
+          echo $! > /tmp/pharmacy-test-http.pid
+          for i in $(seq 1 20); do
+            if curl -fsS "$APP_TEST_URL/health"; then exit 0; fi
+            sleep 1
+          done
+          echo "Test server did not become healthy"
+          exit 1
+        '''
+      }
     }
     stage('Build & Selenium') {
-      steps { sh 'mvn -B -Drevision=${params.APP_VERSION} -Dapp.baseUrl=http://127.0.0.1:${APP_TEST_PORT} clean verify' }
+      steps { sh 'mvn -B -Drevision="$APP_VERSION" -Dapp.baseUrl="$APP_TEST_URL" clean verify' }
       post { always { junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml'; archiveArtifacts allowEmptyArchive: true, artifacts: 'target/*.war' } }
     }
     stage('Build image') {
       when { expression { params.DEPLOY_TARGET == 'container' } }
-      steps { sh 'docker build --build-arg APP_VERSION=${params.APP_VERSION} -t ${IMAGE_NAME}:${params.APP_VERSION} -t ${IMAGE_NAME}:latest .' }
+      steps { sh 'docker build --build-arg APP_VERSION="$APP_VERSION" -t "$IMAGE_NAME:$APP_VERSION" -t "$IMAGE_NAME:latest" .' }
     }
     stage('Publish image') {
-      when { allOf { expression { params.DEPLOY_TARGET == 'container' }; branch 'main' } }
-      steps { withCredentials([usernamePassword(credentialsId: "${REGISTRY_CREDENTIALS}", usernameVariable: 'REG_USER', passwordVariable: 'REG_PASS')]) { sh 'echo "$REG_PASS" | docker login ${REGISTRY} -u "$REG_USER" --password-stdin && docker tag ${IMAGE_NAME}:${params.APP_VERSION} ${REGISTRY}/${REG_USER}/${IMAGE_NAME}:${params.APP_VERSION} && docker push ${REGISTRY}/${REG_USER}/${IMAGE_NAME}:${params.APP_VERSION}' } }
+      when { expression { params.DEPLOY_TARGET == 'container' } }
+      steps {
+        sh 'docker tag "$IMAGE_NAME:$APP_VERSION" "$REGISTRY/$IMAGE_NAME:$APP_VERSION" && docker push "$REGISTRY/$IMAGE_NAME:$APP_VERSION"'
+      }
     }
     stage('Deploy container') {
       when { expression { params.DEPLOY_TARGET == 'container' } }
-      steps { sh 'docker rm -f pharmacy-inventory || true; docker run -d --name pharmacy-inventory --restart unless-stopped -p ${params.APP_PORT}:8080 ${IMAGE_NAME}:${params.APP_VERSION}; sleep 3; curl --fail http://127.0.0.1:${params.APP_PORT}/health' }
+      steps {
+        sh '''
+          docker rm -f pharmacy-inventory || true
+          docker pull "$REGISTRY/$IMAGE_NAME:$APP_VERSION"
+          docker run -d --name pharmacy-inventory --restart unless-stopped -p "$APP_PORT:8080" "$REGISTRY/$IMAGE_NAME:$APP_VERSION"
+          for i in $(seq 1 20); do
+            if curl --fail "http://127.0.0.1:$APP_PORT/health"; then exit 0; fi
+            sleep 1
+          done
+          echo "Container health check failed"
+          exit 1
+        '''
+      }
     }
     stage('Deploy Tomcat') {
       when { expression { params.DEPLOY_TARGET == 'tomcat' } }
-      steps { sh 'install -m 0644 target/pharmacy-inventory.war ${TOMCAT_WEBAPPS}/ROOT.war && curl --retry 10 --retry-delay 3 --fail ${env.APP_URL ?: "http://127.0.0.1:8080"}/health' }
+      steps { sh 'install -m 0644 target/pharmacy-inventory.war "$TOMCAT_WEBAPPS/ROOT.war" && curl --retry 10 --retry-delay 3 --fail "$APP_URL/health"' }
     }
   }
   post {

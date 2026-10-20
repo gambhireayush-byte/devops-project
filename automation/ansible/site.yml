@@ -2,59 +2,127 @@
 - name: Configure pharmacy inventory demo host
   hosts: pharmacy
   become: true
-  vars:
-    app_port: 8080
-    app_version: "1.0.0"
-    app_image: "pharmacy-inventory"
-    deploy_root: /opt/pharmacy-inventory
+  gather_facts: false
   tasks:
+    - name: Bootstrap Python on clean Docker-connected Debian targets
+      ansible.builtin.raw: |
+        if command -v python3 >/dev/null 2>&1; then
+          echo PYTHON_PRESENT
+        else
+          apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y python3 && echo PYTHON_INSTALLED
+        fi
+      register: python_bootstrap
+      changed_when: "'PYTHON_INSTALLED' in python_bootstrap.stdout"
+      when: (ansible_connection | default('ssh')) == 'community.docker.docker'
+
+    - name: Gather target facts after Python bootstrap
+      ansible.builtin.setup:
+
     - name: Install runtime prerequisites
       ansible.builtin.apt:
-        name: [docker.io, curl, ca-certificates]
+        name: "{{ linux_packages | default(['docker.io', 'curl', 'ca-certificates', 'python3-requests', 'python3-docker']) }}"
         state: present
         update_cache: true
-      when: ansible_os_family == "Debian"
+      when: ansible_os_family == 'Debian'
 
     - name: Ensure Docker service is enabled and running
       ansible.builtin.service:
         name: docker
         state: started
         enabled: true
+      when: ansible_service_mgr == 'systemd'
+
+    - name: Ensure application service account exists
+      ansible.builtin.user:
+        name: "{{ service_user | default('pharmacy') }}"
+        system: true
+        create_home: false
+        shell: /usr/sbin/nologin
+      when: ansible_os_family != 'Darwin'
 
     - name: Create release metadata directory
       ansible.builtin.file:
-        path: "{{ deploy_root }}"
+        path: "{{ deploy_root | default('/opt/pharmacy-inventory') }}"
         state: directory
-        owner: root
-        group: root
-        mode: "0755"
+        owner: "{{ (service_user | default('pharmacy')) if ansible_os_family != 'Darwin' else omit }}"
+        group: "{{ (service_user | default('pharmacy')) if ansible_os_family != 'Darwin' else omit }}"
+        mode: '0755'
 
-    - name: Record deployed release version
-      ansible.builtin.copy:
-        dest: "{{ deploy_root }}/release.json"
-        content: '{"service":"pharmacy-inventory","version":"{{ app_version }}"}'
-        owner: root
-        group: root
-        mode: "0644"
+    - name: Read the last successful release for recovery
+      ansible.builtin.slurp:
+        src: "{{ deploy_root | default('/opt/pharmacy-inventory') }}/release.json"
+      register: previous_release_file
+      failed_when: false
+      changed_when: false
 
-    - name: Run inventory web container
-      community.docker.docker_container:
-        name: pharmacy-inventory
-        image: "{{ app_image }}:{{ app_version }}"
-        state: started
-        restart_policy: unless-stopped
-        published_ports: ["{{ app_port }}:8080"]
-        labels:
-          app: pharmacy-inventory
-          release: "{{ app_version }}"
+    - name: Remember the last successful image version
+      ansible.builtin.set_fact:
+        previous_release_version: "{{ (previous_release_file.content | b64decode | from_json).version }}"
+      when: previous_release_file.content is defined
 
-    - name: Check application health
-      ansible.builtin.uri:
-        url: "http://127.0.0.1:{{ app_port }}/health"
-        status_code: 200
-        return_content: true
-      register: health
-      retries: 10
-      delay: 3
-      until: health.status == 200
+    - name: Deploy the requested image and validate it before recording success
+      block:
+        - name: Run inventory web container
+          community.docker.docker_container:
+            name: pharmacy-inventory
+            image: "{{ app_image | default('pharmacy-inventory') }}:{{ app_version | default('1.0.0') }}"
+            state: started
+            restart_policy: unless-stopped
+            published_ports: ["{{ app_port | default(8080) }}:8080"]
+            labels:
+              app: pharmacy-inventory
+              release: "{{ app_version | default('1.0.0') }}"
 
+        - name: Check application health
+          ansible.builtin.uri:
+            url: "{{ app_health_url | default('http://127.0.0.1:' ~ (app_port | default(8080) | string) ~ '/health') }}"
+            status_code: 200
+            return_content: true
+          register: health
+          retries: 10
+          delay: 3
+          until: health.status == 200
+
+        - name: Record the healthy release version
+          ansible.builtin.copy:
+            dest: "{{ deploy_root | default('/opt/pharmacy-inventory') }}/release.json"
+            content: |
+              {"service":"pharmacy-inventory","version":"{{ app_version | default('1.0.0') }}"}
+            owner: "{{ (service_user | default('pharmacy')) if ansible_os_family != 'Darwin' else omit }}"
+            group: "{{ (service_user | default('pharmacy')) if ansible_os_family != 'Darwin' else omit }}"
+            mode: '0644'
+      rescue:
+        - name: Remove a failed first release when no known-good version exists
+          community.docker.docker_container:
+            name: pharmacy-inventory
+            state: absent
+          when: previous_release_version is not defined
+
+        - name: Restore the previous container when a known-good release exists
+          community.docker.docker_container:
+            name: pharmacy-inventory
+            image: "{{ app_image | default('pharmacy-inventory') }}:{{ previous_release_version }}"
+            state: started
+            restart_policy: unless-stopped
+            published_ports: ["{{ app_port | default(8080) }}:8080"]
+            labels:
+              app: pharmacy-inventory
+              release: "{{ previous_release_version }}"
+          when: previous_release_version is defined
+
+        - name: Verify the restored release health
+          ansible.builtin.uri:
+            url: "{{ app_health_url | default('http://127.0.0.1:' ~ (app_port | default(8080) | string) ~ '/health') }}"
+            status_code: 200
+            return_content: true
+          register: rollback_health
+          retries: 10
+          delay: 3
+          until: rollback_health.status == 200
+          when: previous_release_version is defined
+
+        - name: Stop the deployment after recovery handling
+          ansible.builtin.fail:
+            msg: >-
+              Release {{ app_version | default('1.0.0') }} failed its deployment or health check.
+              The previous release was restored when a prior release record existed.
