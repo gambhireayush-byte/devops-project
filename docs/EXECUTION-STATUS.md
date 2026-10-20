@@ -1,38 +1,36 @@
 # Project execution status and assessment notes
 
-Status last verified: 2026-10-21. This report distinguishes prepared artifacts from work that was actually executed. Percentages are completion estimates against each task's stated deliverable, not marks awarded by an assessor.
+Verified 2026-10-21. Percentages estimate completion against the assignment deliverables; they are not assessment marks.
 
-| Task | Estimate | Status and evidence |
+| Task | Complete | Status |
 |---|---:|---|
-| 1. Problem definition and scope | 100% | Problem statement, users, stakeholders, pain points, constraints, success criteria and a 15-task MVP scope are documented. |
-| 2. Agile planning and DevOps workflow | 100% | User stories, acceptance criteria, backlog, 15-task plan, Definition of Done and lifecycle diagram are documented. |
-| 3. Requirements, architecture and setup | 100% | SRS summary, use cases, architecture, data/API design, stack and local application are present; app was opened and exercised locally. |
-| 4. GitHub repository initialization | 100% | Public [GitHub repository](https://github.com/gambhireayush-byte/devops-project), README, ignore rules, templates and development branch are present. |
-| 5. Feature branch and pull request | 100% | [PR #1](https://github.com/gambhireayush-byte/devops-project/pull/1) was reviewed and merged into `develop`; merge evidence is on GitHub. |
-| 6. MVP and collaboration | 100% | Catalogue, transactions, stock/order status, search and alerts are implemented. Branching/conflict resolution and the [v0.1.3-mvp release](https://github.com/gambhireayush-byte/devops-project/releases/tag/v0.1.3-mvp) are documented. |
-| 7. Jenkins CI | 100% | Jenkins 2.568.3 job polls the GitHub feature branch. Build #10 passed Maven packaging and all four Selenium tests; JUnit results and WAR artifact were published. |
-| 8. Pipeline and deployment | 100% | Jenkinsfile checks out, builds, tests, packages and deploys a parameterized container. Build #10 completed successfully and health returned `UP` at `http://127.0.0.1:18081/`. |
-| 9. Selenium design and local run | 100% | Four critical browser journeys are automated; local Maven execution passed 4/4 and failure screenshots are configured. |
-| 10. Continuous testing in Jenkins | 100% | Jenkins runs Selenium tests, publishes JUnit reports, and skips deployment on failure. Build #9 failed after a deliberate catalogue-search defect; the correction commit restored search and low-stock classification, and build #10 passed all four tests and deployed successfully. |
-| 11. Docker lifecycle | 100% | Image was built; a separate container was run, inspected, logged, stopped, restarted, health-checked and removed. Lifecycle steps are documented. |
-| 12. Jenkins-Docker deployment | 100% | Build #10 built and tagged `1.0.0`, pushed to a loopback-only local registry, pulled the tag, deployed a fresh container and passed its health check. |
-| 13. Configuration management | 80% | Ansible playbook and prerequisites are present and executed against localhost. It provisions release metadata and the Docker container. On macOS, Linux package, service and user setup are skipped; a clean Linux target provisioning run remains. |
-| 14. Provisioning and reliability | 85% | Local Ansible application succeeded; an unchanged second run reported `changed=0`. An invalid image-tag upgrade was rejected and the playbook restored the known-good `1.0.0` release with health 200. A clean target-node run remains. |
-| 15. Final validation / duplicate item | 85% | The prompt duplicates task 14. The recovery and health-check evidence is complete locally; the clean target requirement is shared with task 14. |
+| 1. Problem definition and scope | 100% | Problem statement, users, stakeholders, pain points, constraints, success measures and 15-task MVP documented. |
+| 2. Agile planning and DevOps workflow | 100% | Stories, acceptance criteria, backlog, task plan, Definition of Done and lifecycle diagram documented. |
+| 3. Requirements, architecture and setup | 100% | SRS, use cases, architecture, data/API design and local app completed. |
+| 4. GitHub repository initialization | 100% | [Repository](https://github.com/gambhireayush-byte/devops-project), README, ignore rules, templates and branch policy available. |
+| 5. Feature branch and PR | 100% | [PR #1](https://github.com/gambhireayush-byte/devops-project/pull/1) reviewed and merged into develop. |
+| 6. MVP and Git collaboration | 100% | Catalogue, transactions, stock status, search, alerts, branch/conflict exercise and v0.1.3-mvp release completed. |
+| 7. Jenkins CI | 100% | Jenkins job polls the repository; build #10 packaged the WAR, passed Selenium, and published reports/artifacts. |
+| 8. Pipeline and deployment | 100% | Jenkinsfile builds and deploys a parameterized container; build #10 health check passed at localhost:18081. |
+| 9. Selenium design and local run | 100% | Four critical journeys run locally; 4/4 passed and failure screenshots are configured. |
+| 10. Continuous testing | 100% | Build #9 failed at the Selenium gate after a deliberate search defect; correction was committed; build #10 passed and deployed. |
+| 11. Docker lifecycle | 100% | Image built; separate container run, inspected, logged, stopped, restarted, health-checked and removed. |
+| 12. Jenkins-Docker deployment | 100% | Version 1.0.0 published to the loopback registry, pulled, deployed fresh and health-checked. |
+| 13. Configuration management | 95% | Ansible ran on a fresh Debian 12 target container, installed support packages, created the service account and release directory, and deployed the app. The host supplies Docker Engine through its socket, so there is no systemd Docker service inside the target container. |
+| 14. Provisioning and reliability | 95% | First Linux-target run passed and returned health 200; unchanged rerun was changed=0; missing-tag rollout recovered 1.0.0 and health 200. |
+| 15. Final validation (duplicate of 14) | 95% | Same isolated-target provisioning, idempotency, health and recovery evidence applies to this repeated assignment item. |
 
-## Verifiable run details
+## Run evidence
 
-- Jenkins: `http://127.0.0.1:8090/`; successful pipeline build: `http://127.0.0.1:8090/job/pharmacy-inventory-ci/10/consoleText`.
-- Deployed local app: `http://127.0.0.1:18081/`; health endpoint: `/health`.
-- Local registry: `127.0.0.1:5000`; repository `pharmacy-inventory`, tag `1.0.0`.
-- Selenium: Maven `clean verify`, 4 tests, 0 failures.
-- Ansible: first run `ok=6 changed=3 failed=0`; unchanged rerun `ok=7 changed=0 failed=0`; invalid-tag recovery restored the prior image and health check returned 200. Recovery run's nonzero result is expected because the requested upgrade was intentionally bad.
-- Docker lifecycle used temporary container `pharmacy-lifecycle-test`; it was removed after stop/restart checks. The deployed `pharmacy-inventory` container remains available on port 18081.
+- Jenkins success: [build #10](http://127.0.0.1:8090/job/pharmacy-inventory-ci/10/consoleText); deliberate Selenium gate failure: [build #9](http://127.0.0.1:8090/job/pharmacy-inventory-ci/9/consoleText).
+- Application: http://127.0.0.1:18081/; health endpoint /health.
+- Local image registry: 127.0.0.1:5000; image pharmacy-inventory:1.0.0.
+- Selenium: Maven clean verify, 4 tests, 0 failures.
+- Debian Ansible: initial ok=9 changed=4 failed=0; unchanged rerun ok=10 changed=0 failed=0; recovery rescued=1, intentionally nonzero because the requested missing release failed, but prior version health was 200.
+- Detailed Linux target results: docs/evidence/ANSIBLE-LINUX-VALIDATION.md.
 
-## Remaining assessment gaps
+## Remaining evidence work
 
-1. Capture and save screenshots from Jenkins, GitHub, the app, Docker and Ansible into `screenshots/task-01/` through `screenshots/task-15/`. The directories exist, but browser captures have not yet been saved as image files there.
-2. Run the Ansible configuration against a clean Linux VM/target to demonstrate package, service, user and firewall prerequisites. Current Ansible execution used localhost on macOS, so those Linux-specific tasks were skipped.
-3. The latest CI/Ansible updates are on the open [PR #2](https://github.com/gambhireayush-byte/devops-project/pull/2); GitHub is still calculating mergeability, so it remains open for review and merge into `develop`.
+The screenshots/task-01/ through screenshots/task-15/ folders exist, but screenshot image files have not yet been saved into them. Capture UI/terminal proof into those folders before final assessment submission. Task 15 repeats task 14 in the assignment and should be presented as shared final acceptance evidence.
 
-Task 15 in the assignment repeats task 14. For assessment, describe task 15 as the final acceptance/reliability validation and explain that it shares the provisioning and recovery evidence with task 14.
+The CI and provisioning work is on [PR #2](https://github.com/gambhireayush-byte/devops-project/pull/2); merge it into develop after reviewing the latest branch state.
